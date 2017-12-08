@@ -18,15 +18,15 @@ class DevelopersDAO {
     // Select ID of developer and check it in database
     private int checkDeveloper(Statement statement)
             throws SQLException {
-        int ID = 0, amount = 0;
+        int ID, amount = 0;
 
         while (true) {
             System.out.print("Select ID of the developer: ");
 
             try {
                 ID = reader.nextInt();
-                reader.nextLine();
             } catch (InputMismatchException e) {
+                reader.nextLine();
                 System.out.println("You didn't write a number!");
                 System.out.println("Would you like to return in main menu? (Y/N)");
                 select = reader.nextLine();
@@ -34,8 +34,9 @@ class DevelopersDAO {
                     return 0;
                 continue;
             }
+            reader.nextLine();
 
-            query = "SELECT COUNT(id) FROM developer WHERE id = " + ID;
+            query = "SELECT COUNT(id) FROM developers WHERE id = " + ID;
             result = statement.executeQuery(query);
             while (result.next())
                 amount = result.getInt(1);
@@ -56,13 +57,6 @@ class DevelopersDAO {
 
 
 
-    // Method to check on exit from method
-    private boolean repeatCycle() {
-        select = reader.nextLine();
-        return !(!select.equals("y") & !select.equals("Y"));
-    }
-
-
     // Constructor of this class, initiate List<Developers>,
     // this collection is filled data from database
     DevelopersDAO(Statement statement) throws SQLException {
@@ -75,7 +69,7 @@ class DevelopersDAO {
 
         developersList = new LinkedList<Developers>();
 
-        for (int ID = 0; ID < amountDevs; ID++) {
+        for (int ID = 1; ID <= amountDevs; ID++) {
             skillsSet = new HashSet<Skills>();
 
             query = "SELECT * FROM developers WHERE id = " + ID;
@@ -102,7 +96,7 @@ class DevelopersDAO {
     // Creating of the developer and adding skills,
     // save changing to database and collection
     void createDeveloper(Connection connection, Statement statement)
-            throws SQLException {
+            throws SQLException, NumberFormatException {
         String ID, name = "-", skill;
         int id = -1, ID_skill = 0, salary, amount = 0, countRow;
         boolean checkName = true, addSkill = true, repeat = true;
@@ -134,8 +128,8 @@ class DevelopersDAO {
                             ResultSet.CONCUR_READ_ONLY).executeQuery(query);
                     result.last();
                     countRow = result.getRow();
-                    id = 0;
-                    for (int i = 0; i < countRow; i++) {
+                    id = 0; amount = 0;
+                    for (int i = 1; i <= countRow; i++) {
                         result = statement.executeQuery("SELECT COUNT(id) FROM developers WHERE id = " + i);
                         while (result.next())
                             amount = result.getInt(1);
@@ -151,6 +145,7 @@ class DevelopersDAO {
             }
 
 
+            amount = 0;
             // Enter and check name
             while (checkName) {
                 System.out.print("Enter name of new developer: ");
@@ -161,7 +156,7 @@ class DevelopersDAO {
                 while (result.next())
                     amount = result.getInt(1);
 
-                if (amount > 0) System.out.println("This name is already exists! Try again..");
+                if (amount > 0) System.out.println("This name already exists! Try again..");
                 else checkName = false;
             }
 
@@ -175,6 +170,20 @@ class DevelopersDAO {
                 reader.nextLine();
             } else salary = 0;
 
+            // Executing of query
+            if (id == 0)
+                query = "INSERT INTO developers VALUES (NULL, '" + name + "', " + salary + ")";
+            else query = "INSERT INTO developers VALUES (" + id + ", '" + name + "', " + salary + ")";
+            System.out.println("Add " + statement.executeUpdate(query) + " row(-s) in the table..");
+
+
+            // Get ID if it equals nought
+            if (id == 0) {
+                query = "SELECT id FROM developers WHERE name = '" + name + "'";
+                result = statement.executeQuery(query);
+                while (result.next())
+                    id = result.getInt("id");
+            }
             // Create object 'developer'
             developer = new Developers(id, name, salary, null);
 
@@ -199,14 +208,13 @@ class DevelopersDAO {
                 }
 
                 if (specialty != null & ID_skill != 0) {
-                    if (skillsSet != null)
-                        skillsSet.add(specialty);
-                    else {
-                        skillsSet = new HashSet<Skills>();
-                        skillsSet.add(specialty);
-                    }
+
+                    skillsSet = new HashSet<Skills>();
+                    skillsSet.add(specialty);
+
 
                     query = "INSERT INTO developers_skills VALUES (" + id + ", " + ID_skill + ")";
+                    System.out.println("Add " + statement.executeUpdate(query) + " skill(-s)..");
 
                     System.out.println("Do you want to add another skill? (Y/N)");
                     select = reader.nextLine();
@@ -217,16 +225,10 @@ class DevelopersDAO {
 
             developer.setSkills(skillsSet);
 
-            // Executing of query
-            if (id == 0)
-                query = "INSERT INTO developers VALUES (NULL, '" + name + "', " + salary + ")";
-            else query = "INSERT INTO developers VALUES (" + id + ", '" + name + "', " + salary + ")";
-            System.out.println("Add " + statement.executeUpdate(query) + " row(-s) in the table..");
-
             developersList.add(developer);
 
             System.out.println("\nWould you like to add another developer? (Y/N)");
-            repeat = repeatCycle();
+            repeat = Common.repeatCycle();
         }
     }
 
@@ -378,15 +380,29 @@ class DevelopersDAO {
                             }
                         }
 
-                        query = "DELETE FROM developers_skills WHERE id_skill = " + delSkill.getID() +
-                                " AND id_developer = " + ID;
+                        if (delSkill != null)
+                            query = "DELETE FROM developers_skills WHERE id_skill = " + delSkill.getID() +
+                                    " AND id_developer = " + ID;
+                        else break;
+
+                        // Execute deleting from database and collection
+                        System.out.println("Delete " + statement.executeUpdate(query) + " row(-s) in " +
+                                "'developers_skills'..");
+                        skillDev = developer.getSkills();
+                        if (skillDev.contains(delSkill))
+                            skillDev.remove(delSkill);
+                        developer.setSkills(skillDev);
+
+                        break;
 
                     } else {
                         checker = 0;
+                        // Check entering column
                         for (String column : columns)
                             if (column.equals(select))
                                 checker = 1;
 
+                        // It would do, if column was found
                         if (checker == 1) {
                             builder.append(select);
                             System.out.print("Enter a new value: ");
@@ -411,26 +427,25 @@ class DevelopersDAO {
                             System.out.println("This columns is not exist!");
                             continue;
                         }
-
-                        System.out.println("Would you like to update another column? (Y/N)");
-                        select = reader.nextLine();
-                        if (!select.equals("y") & !select.equals("Y"))
-                            change = false;
-
                     }
+
+                    System.out.println("Would you like to update another column? (Y/N)");
+                    select = reader.nextLine();
+                    if (!select.equals("y") & !select.equals("Y"))
+                        change = false;
                 }
             }
             else return;
 
             System.out.println("\nWould you like to update another developer? (Y/N)");
-            repeat = repeatCycle();
+            repeat = Common.repeatCycle();
         }
     }
 
 
 
     // Deleting developers, save changing to database and collection
-    void deleteDeveloper(Connection connection, Statement statement)
+    void deleteDeveloper(Statement statement)
             throws SQLException {
 
         ResultSet result;
@@ -439,8 +454,11 @@ class DevelopersDAO {
 
         while (repeat) {
 
+            // Get ID of the developer
             ID = checkDeveloper(statement);
 
+            // It would do, if ID was chosen
+            // Else the exit from method will be done
             if (ID != 0) {
                 query = "SELECT * FROM developers WHERE id = " + ID;
                 result = statement.executeQuery(query);
@@ -457,12 +475,22 @@ class DevelopersDAO {
             else return;
 
             System.out.println("\nWould you like to delete another developer? (Y/N)");
-            repeat = repeatCycle();
+            repeat = Common.repeatCycle();
         }
     }
 
 
+    // This method output last developer which was added/chosen/deleted
+    void printLastDeveloper() {
+        if (developer != null) {
+            Set<Skills> skillsSet = developer.getSkills();
 
-    void develete() {}
-    // Output last developer!
+            System.out.println(developer.getID() + ". " + developer.getName() +
+                    " - " + developer.getSalary());
+            System.out.println("He has next skills:");
+            for (Skills skill : skillsSet)
+                System.out.println("\t" + skill.getID() + ". " + skill.getSpecialty());
+        }
+        else System.out.println("You didn't add/update/delete any developer yet..");
+    }
 }

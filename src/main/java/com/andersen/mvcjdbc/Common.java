@@ -3,6 +3,7 @@ package com.andersen.mvcjdbc;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Scanner;
 
 class Common {
 
@@ -123,5 +124,12 @@ class Common {
             System.out.println(addString);
         }
         else System.out.println("The query is empty.");
+    }
+
+    // Method to check on exit from method
+    static boolean repeatCycle() {
+        Scanner reader = new Scanner(System.in);
+        String select = reader.nextLine();
+        return !(!select.equals("y") & !select.equals("Y"));
     }
 }
