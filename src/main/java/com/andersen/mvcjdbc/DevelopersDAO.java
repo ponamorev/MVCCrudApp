@@ -61,6 +61,7 @@ class DevelopersDAO {
     // this collection is filled data from database
     DevelopersDAO(Statement statement) throws SQLException {
         int amountDevs = 0;
+        skillsSet = null;
 
         query = "SELECT COUNT(id) FROM developers";
         result = statement.executeQuery(query);
@@ -98,10 +99,13 @@ class DevelopersDAO {
     void createDeveloper(Connection connection, Statement statement)
             throws SQLException, NumberFormatException {
         String ID, name = "-", skill;
-        int id = -1, ID_skill = 0, salary, amount = 0, countRow;
-        boolean checkName = true, addSkill = true, repeat = true;
+        int id, ID_skill = 0, salary, amount = 0, countRow;
+        boolean checkName, addSkill, repeat = true;
 
         while (repeat) {
+            id = -1;
+            checkName = true;
+            addSkill = true;
             // Enter and check ID
             while (id == -1) {
                 System.out.print("Enter ID of new developer (press 'enter' for skip): ");
@@ -190,6 +194,8 @@ class DevelopersDAO {
 
             // Set skills
             skillsSet = developer.getSkills();
+            if (skillsSet == null)
+                skillsSet = new HashSet<Skills>();
             while (addSkill) {
                 query = "SELECT * FROM skills";
                 Common.printTable(query, new String[]{"id", "specialty"}, connection);
@@ -197,6 +203,7 @@ class DevelopersDAO {
                 skill = reader.nextLine();
                 Skills specialty = null;
 
+                amount = 0;
                 if (Common.isNumber(skill))
                     query = "SELECT * FROM skills WHERE id = " + skill;
                 else query = "SELECT * FROM skills WHERE specialty = '" + skill + "'";
@@ -209,7 +216,6 @@ class DevelopersDAO {
 
                 if (specialty != null & ID_skill != 0) {
 
-                    skillsSet = new HashSet<Skills>();
                     skillsSet.add(specialty);
 
 
@@ -221,8 +227,11 @@ class DevelopersDAO {
                     if (!select.equals("y") & !select.equals("Y"))
                         addSkill = false;
                 }
+                else System.out.println("You wrote non-existent skill..");
             }
 
+            if (skillsSet == null)
+                skillsSet = new HashSet<Skills>();
             developer.setSkills(skillsSet);
 
             developersList.add(developer);
@@ -239,16 +248,20 @@ class DevelopersDAO {
     void updateDeveloper(Connection connection, Statement statement)
             throws SQLException {
         SkillsDAO skillDAO = new SkillsDAO();
-        Set<Skills> skillDev;
         DevelopersView view = new DevelopersView();
         StringBuilder builder = new StringBuilder();
         String columns[] = new String[]{"name", "salary"}, ID_skill;
         int checker, ID, idSkill;
-        boolean change = true, repeat = true;
+        boolean change, repeat = true;
 
 
         while (repeat) {
-
+            change = true;
+            query = "SELECT developers.id, developers.name, developers.salary, GROUP_CONCAT(skills.specialty) AS 'skills' " +
+                    "FROM developers LEFT JOIN developers_skills ON developers.id = developers_skills.id_developer " +
+                    "LEFT JOIN skills ON developers_skills.id_skill = skills.id GROUP BY developers.id, developers.name," +
+                    "developers.salary";
+            Common.printTable(query, new String[]{"id", "name", "salary", "skills"}, connection);
             ID = checkDeveloper(statement);
 
             // Next action will do if id of the developer is not equal nought
@@ -264,8 +277,8 @@ class DevelopersDAO {
                 while (change) {
                     builder.delete(0, builder.length());
                     checker = 0;
-                    System.out.println("Select a column to change (besides 'ID'). For adding skill" +
-                            "write 'add skill', for deleting write 'delete skill'");
+                    System.out.println("Select a column to change (besides 'ID'). Write 'add skill' for " +
+                            "adding a skill, write 'delete skill' for deleting a skill..");
                     select = reader.nextLine();
                     if (select.equals("id")) {
                         System.out.println("ID can not be changed!");
@@ -278,14 +291,14 @@ class DevelopersDAO {
                         if (developer.getSkills() != null) {
                             System.out.println("The developer has next skills:");
                             for (Skills skill : developer.getSkills())
-                                System.out.println(skill.getID() + ". " + skill.getSpecialty());
+                                System.out.println("\t" + skill.getID() + ". " + skill.getSpecialty());
                         } else
                             System.out.println("The developer has not any skills till..");
 
                         // Output all skills from database and enter skill to add
                         query = "SELECT * FROM skills";
                         Common.printTable(query, new String[]{"id", "specialty"}, connection);
-                        System.out.println("Select skill to add: ");
+                        System.out.print("Select skill to add: ");
                         ID_skill = reader.nextLine();
                         idSkill = skillDAO.checkSkill(ID_skill, statement);
 
@@ -298,7 +311,7 @@ class DevelopersDAO {
                                         checker++;
                                 if (checker > 0) {
                                     System.out.println("You try to add skill which the developer is already had.");
-                                    break;
+                                    continue;
                                 }
 
                                 // Add changing to database..
@@ -311,14 +324,14 @@ class DevelopersDAO {
                                 result = statement.executeQuery(query);
 
                                 if (developer.getSkills() != null)
-                                    skillDev = developer.getSkills();
+                                    skillsSet = developer.getSkills();
                                 else
-                                    skillDev = new HashSet<Skills>();
+                                    skillsSet = new HashSet<Skills>();
 
                                 while (result.next())
-                                    skillDev.add(new Skills(result.getInt("id"),
+                                    skillsSet.add(new Skills(result.getInt("id"),
                                             result.getString("specialty")));
-                                developer.setSkills(skillDev);
+                                developer.setSkills(skillsSet);
                             }
                         }
 
@@ -331,10 +344,10 @@ class DevelopersDAO {
                         if (developer.getSkills() != null) {
                             System.out.println("The developer has next skills:");
                             for (Skills skill : developer.getSkills())
-                                System.out.println(skill.getID() + ". " + skill.getSpecialty());
+                                System.out.println("\t" + skill.getID() + ". " + skill.getSpecialty());
                         } else {
                             System.out.println("The developer has not any skills till..");
-                            break;
+                            continue;
                         }
 
                         System.out.print("Enter the skill to delete: ");
@@ -345,55 +358,46 @@ class DevelopersDAO {
                             for (Skills skill : developer.getSkills())
                                 if (skill.getID() == Integer.parseInt(select))
                                     checker++;
-
-                            // Check database to exist this skill
-                            if (checker > 0) {
+                            if (checker > 0)
                                 query = "SELECT * FROM skills WHERE id = " + select;
-                                result = statement.executeQuery(query);
-                                while (result.next())
-                                    delSkill = new Skills(result.getInt("id"),
-                                            result.getString("specialty"));
-
-                            } else {
-                                System.out.println("The developer has not this skill..");
-                                break;
+                            else {
+                                System.out.println("The developer hasn't this skill..");
+                                continue;
                             }
                         }
-                        // Name
                         else {
-                            checker = 0;
                             for (Skills skill : developer.getSkills())
                                 if (skill.getSpecialty().equals(select))
                                     checker++;
-
-                            // Check database to exist this skill
-                            if (checker > 0) {
+                            if (checker > 0)
                                 query = "SELECT * FROM skills WHERE specialty = '" + select + "'";
-                                result = statement.executeQuery(query);
-                                while (result.next())
-                                    delSkill = new Skills(result.getInt("id"),
-                                            result.getString("specialty"));
-
-                            } else {
-                                System.out.println("The developer has not this skill..");
-                                break;
+                            else {
+                                System.out.println("The developer hasn't this skill..");
+                                continue;
                             }
                         }
 
-                        if (delSkill != null)
+                        // Check database to exist this skill
+
+                        result = statement.executeQuery(query);
+                        while (result.next())
+                            delSkill = new Skills(result.getInt("id"),
+                                    result.getString("specialty"));
+
+
+                        if (delSkill != null) {
                             query = "DELETE FROM developers_skills WHERE id_skill = " + delSkill.getID() +
                                     " AND id_developer = " + ID;
-                        else break;
+                            // Execute deleting from database and collection
+                            System.out.println("Delete " + statement.executeUpdate(query) + " row(-s) in " +
+                                    "'developers_skills'..");
+                            skillsSet = developer.getSkills();
+                            if (skillsSet.contains(delSkill))
+                                skillsSet.remove(delSkill);
+                            developer.setSkills(skillsSet);
+                        }
+                        else System.out.println("Can't delete a skill..");
 
-                        // Execute deleting from database and collection
-                        System.out.println("Delete " + statement.executeUpdate(query) + " row(-s) in " +
-                                "'developers_skills'..");
-                        skillDev = developer.getSkills();
-                        if (skillDev.contains(delSkill))
-                            skillDev.remove(delSkill);
-                        developer.setSkills(skillDev);
-
-                        break;
 
                     } else {
                         checker = 0;
@@ -414,6 +418,13 @@ class DevelopersDAO {
                                 builder.append(" = ").append(select);
                             }
 
+                            skillsSet = null;
+                            for (Developers developer : developersList)
+                                if (developer.getID() == ID)
+                                    skillsSet = developer.getSkills();
+                            if (skillsSet == null)
+                                skillsSet = new HashSet<Skills>();
+
                             query = "UPDATE developers SET " + builder.toString() + " WHERE id = " + ID;
                             System.out.println("Update " + statement.executeUpdate(query) + " row(-s) in the table..");
 
@@ -421,12 +432,9 @@ class DevelopersDAO {
                             result = statement.executeQuery(query);
                             while (result.next())
                                 developer = new Developers(ID, result.getString("name"),
-                                        result.getInt("salary"), null);
+                                        result.getInt("salary"), skillsSet);
 
-                        } else {
-                            System.out.println("This columns is not exist!");
-                            continue;
-                        }
+                        } else System.out.println("This columns is not exist!");
                     }
 
                     System.out.println("Would you like to update another column? (Y/N)");
@@ -445,7 +453,7 @@ class DevelopersDAO {
 
 
     // Deleting developers, save changing to database and collection
-    void deleteDeveloper(Statement statement)
+    void deleteDeveloper(Connection connection, Statement statement)
             throws SQLException {
 
         ResultSet result;
@@ -454,17 +462,23 @@ class DevelopersDAO {
 
         while (repeat) {
 
+            query = "SELECT * FROM developers";
+            Common.printTable(query, new String[]{"id", "name", "salary"}, connection);
             // Get ID of the developer
             ID = checkDeveloper(statement);
 
             // It would do, if ID was chosen
             // Else the exit from method will be done
             if (ID != 0) {
+                for (Developers developer : developersList)
+                    if (developer.getID() == ID)
+                        skillsSet = developer.getSkills();
+
                 query = "SELECT * FROM developers WHERE id = " + ID;
                 result = statement.executeQuery(query);
                 while (result.next())
                     developer = new Developers(result.getInt("id"),
-                            result.getString("name"), result.getInt("salary"), null);
+                            result.getString("name"), result.getInt("salary"), skillsSet);
 
                 query = "DELETE FROM developers_skills WHERE id_developer = " + ID;
                 System.out.println("Delete " + statement.executeUpdate(query) + " row(-s) in 'developers_skills'..");
@@ -483,7 +497,7 @@ class DevelopersDAO {
     // This method output last developer which was added/chosen/deleted
     void printLastDeveloper() {
         if (developer != null) {
-            Set<Skills> skillsSet = developer.getSkills();
+            skillsSet = developer.getSkills();
 
             System.out.println(developer.getID() + ". " + developer.getName() +
                     " - " + developer.getSalary());

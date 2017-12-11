@@ -93,9 +93,8 @@ class Common {
             System.out.print("| ");
             while (count < columns.length) {
                 System.out.print(columns[count]);
-                if (count + 1 < columns.length)
+                if (count++ + 1 <= columns.length)
                     System.out.print(" | ");
-                count++;
             }
 
             count = 0;

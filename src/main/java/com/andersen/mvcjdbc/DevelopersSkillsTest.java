@@ -34,7 +34,7 @@ class DevelopersSkillsTest {
                 SkillsView skView = new SkillsView();
 
                 while (true) {
-                    System.out.println("All available actions:\n\t1. Create developer\n\t2. " +
+                    System.out.println("\nAll available actions:\n\t1. Create developer\n\t2. " +
                             "Update developer\n\t3. Delete developer\n\t4. Read developers\n\t" +
                             "5. Print last developer which added/updated/deleted\n\t6. Create " +
                             "skill\n\t7. Update skill\n\t8. Delete skill\n\t9. Read" +
@@ -56,7 +56,7 @@ class DevelopersSkillsTest {
                             dao.updateDeveloper(connection, statement);
                             break;
                         case 3:
-                            dao.deleteDeveloper(statement);
+                            dao.deleteDeveloper(connection, statement);
                             break;
                         case 4:
                             devView.readDevelopers(connection);
@@ -68,7 +68,7 @@ class DevelopersSkillsTest {
                             sao.createSkill(connection, statement);
                             break;
                         case 7:
-                            sao.updateSkill(statement);
+                            sao.updateSkill(connection, statement);
                             break;
                         case 8:
                             sao.deleteSkill(statement);

@@ -24,7 +24,7 @@ class DevelopersView {
                     result.getString("name"), result.getInt("salary"), null);
 
         if (dev != null) {
-            for (int index = 1; index <= devDAO.developersList.size(); index++)
+            for (int index = 0; index < devDAO.developersList.size(); index++)
                 if (dev.getID() == devDAO.developersList.get(index).getID()) {
                     dev.setSkills(devDAO.developersList.get(index).getSkills());
                     return dev;
@@ -37,12 +37,16 @@ class DevelopersView {
     void readDevelopers(Connection connection) throws SQLException {
         String condition, choice;
         boolean flag = false;
+        builder.delete(0, builder.length());
 
         System.out.println("Output all from table?.. (Y/N)");
         choice = reader.nextLine();
         if (choice.equals("y") || choice.equals("Y")) {
-            query = "SELECT * FROM developers";
-            Common.printTable(query, new String[] {"id", "name", "salary"}, connection);
+            query = "SELECT developers.id, developers.name, developers.salary, GROUP_CONCAT(skills." +
+                    "specialty) FROM developers LEFT JOIN developers_skills ON developers.id = " +
+                    "developers_skills.id_developer LEFT JOIN skills ON skills.id = developers_" +
+                    "skills.id_skill GROUP BY developers.id, developers.name, developers.salary";
+            Common.printTable(query, new String[] {"id", "name", "salary", "skills"}, connection);
         }
         else {
 
@@ -56,7 +60,7 @@ class DevelopersView {
                     "or 'column1 = value1, column2 > value2' or 'column BETWEEN " +
                     "min_value AND max_value'..");
             condition = reader.nextLine();
-            builder.append(condition);
+            builder.append("developers.").append(condition);
 
             while (!flag) {
 
@@ -66,22 +70,24 @@ class DevelopersView {
                 if (choice.equals("y") || choice.equals("Y")) {
 
                     condition = reader.nextLine();
+                    builder.append(" AND ").append("developers.").append(condition);
 
-                    System.out.println("It's required condition? (Y/any key)");
-                    choice = reader.nextLine();
-
-                    if (choice.equals("y") || choice.equals("Y"))
-                        builder.append(" AND ").append(condition);
-                    else builder.append(" OR ").append(condition);
                 } else flag = true;
             }
 
             if (builder.toString().equals("") || builder.toString().equals("\n"))
-                query = "SELECT * FROM developers";
+                query = "SELECT developers.id, developers.name, developers.salary, GROUP_CONCAT(skills." +
+                        "specialty) FROM developers LEFT JOIN developers_skills ON developers.id = developers_" +
+                        "skills.id_developer LEFT JOIN skills ON skills.id = developers_skills.id_skill" +
+                        " GROUP BY developers.id, developers.name, developers.salary";
             else
-                query = "SELECT * FROM developers WHERE " + builder.toString();
+                query = "SELECT DISTINCT developers.id, developers.name, developers.salary, GROUP_CONCAT(skills." +
+                        "specialty) AS 'skills' FROM developers, skills, developers_skills WHERE developers_skills." +
+                        "id_developer = developers.id AND developers_skills.id_skill IN (SELECT id_skill FROM " +
+                        "developers_skills WHERE id_developer = developers.id) AND skills.id = developers_skills." +
+                        "id_skill AND " + builder.toString() + " GROUP BY developers.id";
 
-            Common.printTable(query, new String[] {"id", "name", "salary"}, connection);
+            Common.printTable(query, new String[] {"id", "name", "salary", "skills"}, connection);
         }
     }
 }

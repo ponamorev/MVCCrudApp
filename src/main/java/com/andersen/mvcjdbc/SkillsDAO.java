@@ -73,6 +73,17 @@ class SkillsDAO {
             if (count > 0)
                 return ID;
         }
+        else {
+            query = "SELECT id FROM skills WHERE specialty = '" + ID_skill + "'";
+            result = statement.executeQuery(query);
+            while (result.next())
+                count = result.getInt("id");
+
+            if (count != 0) {
+                ID = count;
+                return ID;
+            } else System.out.println("You wrote non-existent skill..");
+        }
         return 0;
     }
 
@@ -159,13 +170,15 @@ class SkillsDAO {
 
 
     // Updating skill
-    void updateSkill(Statement statement) throws SQLException {
+    void updateSkill(Connection connection, Statement statement) throws SQLException {
         String name, condition;
         int ID;
         boolean repeat = true;
 
         while (repeat) {
 
+            query = "SELECT * FROM skills";
+            Common.printTable(query, new String[]{"id", "specialty"}, connection);
             ID = checkSkill(statement);
 
             System.out.print("Enter a new name of the skill: ");
